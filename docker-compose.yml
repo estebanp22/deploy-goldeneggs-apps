@@ -1,16 +1,6 @@
 version: "3.9"
 
 services:
-  frontend:
-    build: ./frontend
-    container_name: frontend_goldeneggs
-    ports:
-      - "4200:80"
-    depends_on:
-      - backend
-    networks:
-      - goldeneggs_net
-
   backend:
     build: ./backend
     container_name: backend_goldeneggs
@@ -55,7 +45,19 @@ services:
     networks:
       - goldeneggs_net
 
+  proxy:
+    build:
+      context: .   # la raíz de tu proyecto
+      dockerfile: nginx/Dockerfile
+    container_name: nginx_goldeneggs
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - goldeneggs_net
+
+
 networks:
   goldeneggs_net:
     driver: bridge
-
