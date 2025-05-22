@@ -7,14 +7,39 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v1
 
-      - name: Install Docker Compose
-        run: sudo apt-get install docker-compose -y
-
-      - name: Run Makefile
+      - name: SSH Deploy
+        env:
+          PRIVATE_KEY: "${{ secrets.SSH_PRIVATE_KEY }}"
+          HOST_NAME: ${{ secrets.SSH_HOST }}
+          USER_NAME: ${{ secrets.USER_NAME }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          GIT_REPO: ${{ secrets.GIT_REPO }}
         run: |
-          make all
+          # Create .ssh directory
+          mkdir -p ~/.ssh
+
+          # Write key to file and set proper permissions
+          echo "$PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Add host to known hosts
+          ssh-keyscan -H ${HOST_NAME} >> ~/.ssh/known_hosts
+
+          # Use -T flag to disable pseudo-terminal allocation
+          ssh -T -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${USER_NAME}@${HOST_NAME} <<EOF
+            if [ ! -d "${PROJECT_PATH}/.git" ]; then
+              mkdir -p \$(dirname ${PROJECT_PATH})
+              git clone ${GIT_REPO} ${PROJECT_PATH}
+            fi
+
+            cd ${PROJECT_PATH}
+            git checkout main
+            git fetch --all
+            git reset --hard origin/main
+            git pull origin main          
+          
+            make all
+          EOF
